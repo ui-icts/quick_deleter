@@ -1,21 +1,16 @@
 {
   "name": "Quick Deleter",
-  "description": "Quickly delete projects",
+  "description": "Quickly delete and restore projects in bulk",
 
   "namespace": "UIOWA\\QuickDeleter",
-
+  "framework-version": 10,
   "authors": [
     {
       "name": "Joe Spring",
       "email": "joseph-spring@uiowa.edu",
       "institution": "University of Iowa Institute for Clinical and Translational Science"
-    },
-        {
-      "name": "Izzy Neuhaus",
-      "email": "isabelle-neuhaus@uiowa.edu",
-      "institution": "University of Iowa Institute for Clinical and Translational Science"
     }
-   ],
+  ],
 
   "links": {
     "control-center": [
@@ -66,6 +61,11 @@
       "type": "checkbox",
       "required": false
     }
-
-  ]
+  ],
+  "compatibility": {
+    "php-version-min": "7.3",
+    "php-version-max": "",
+    "redcap-version-min": "12.4.6",
+    "redcap-version-max": ""
+  }
 }
