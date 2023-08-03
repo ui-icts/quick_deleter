@@ -1,19 +1,9 @@
-// $.extend(UIOWA_QD, {
-//   //   currentRowsChecked: [],
-// });
-
 $(document).ready(function () {
-  //   UIOWA_QD.replaceAll("&lt;", "<")
-  //     .replaceAll("&gt;", ">")
-  //     .replaceAll("&quot;", '"');
-
-  console.log("hi");
-  console.log(UIOWA_QD);
   let currentRowsChecked = [];
 
   const url = new URL(window.location.href);
   let pids = url.searchParams.get("pids");
-  console.log(pids);
+
   if (pids !== undefined && pids !== "" && pids !== null) {
     $("#qdCustomPids").val(pids);
     $("#qdSubmitCustom").css({ visibility: "visible" });
@@ -25,23 +15,18 @@ $(document).ready(function () {
     let isValidCustomPids = false;
     const boxVal = $("#qdCustomPids").val();
     if (boxVal.match(/^\d/)) {
-      console.log("starts with integer");
       if (boxVal.includes(",") && !boxVal.endsWith(",")) {
-        console.log("is multiple pids");
         const boxValSplit = boxVal.split(",");
-        console.log(boxValSplit);
+
         for (let i = 0; i < boxValSplit.length; i++) {
-          console.log(boxValSplit[i]);
           if (
             typeof parseInt(boxValSplit[i]) !== "number" ||
             boxValSplit[i].includes(".") ||
             isNaN(boxValSplit[i])
           ) {
-            console.log("not int");
             isValidCustomPids = false;
             break;
           } else {
-            console.log("is int");
             isValidCustomPids = true;
           }
         }
@@ -50,15 +35,12 @@ $(document).ready(function () {
         boxVal.includes(".") ||
         boxVal.endsWith(",")
       ) {
-        console.log("not int");
         isValidCustomPids = false;
         // break;
       } else {
-        console.log("is int");
         isValidCustomPids = true;
       }
     } else if (boxVal.startsWith("{") && boxVal.endsWith("}")) {
-      console.log("is json");
       const pidColumnName = [
         "pid",
         "project-id",
@@ -67,14 +49,12 @@ $(document).ready(function () {
         "project id",
       ];
       const jsonizedBoxVal = JSON.parse(boxVal);
-      console.log(jsonizedBoxVal.header);
 
       let pidIndex = -1;
       for (let i = 0; i < jsonizedBoxVal.header.length; i++) {
-        console.log(jsonizedBoxVal.header[i].toLowerCase());
         if (pidColumnName.includes(jsonizedBoxVal.header[i].toLowerCase())) {
           pidIndex = i;
-          console.log("pid index is: " + pidIndex);
+
           break;
         }
       }
@@ -85,25 +65,18 @@ $(document).ready(function () {
         pids = [...pids, jsonizedBoxVal.body[i][pidIndex]];
       }
 
-      console.log(pids);
-
       $("#qdCustomPids").val(pids);
     }
-    console.log(isValidCustomPids);
+
     if (isValidCustomPids) {
       $("#qdSubmitCustom").css({ visibility: "visible" });
     } else {
       $("#qdSubmitCustom").css({ visibility: "hidden" });
     }
-    // } else if (boxVal.startsWith("[{") && boxVal.endsWith("}]")) {
-    //   $("#qdSubmitCustom").css({ visibility: "visible" });
-    // } else {
-    //   $("#qdSubmitCustom").css({ visibility: "hidden" });
-    // }
   });
 
   const getQueryData = new URLSearchParams();
-  //   let pids = "";
+
   $("#qdSubmitCustom").click(function () {
     pids = $("#qdCustomPids").val();
 
@@ -118,8 +91,6 @@ $(document).ready(function () {
   fetchDataAndLoadTable();
 
   function fetchDataAndLoadTable() {
-    // const url = new URL(window.location.href);
-    // const pids = url.searchParams.get("pids");
     getQueryData.append("pids", pids);
     fetch(UIOWA_QD.urlLookup.post, {
       method: "POST",
@@ -127,11 +98,6 @@ $(document).ready(function () {
     })
       .then((response) => response.text())
       .then((data) => {
-        // $("#qdTable thead tr")
-        //   .clone(true)
-        //   .addClass("filters")
-        //   .appendTo("#qdTable thead");
-
         const data2 = data
           .replaceAll("&quot;", '"')
           .replaceAll("<", "&lt;")
@@ -209,21 +175,10 @@ $(document).ready(function () {
             {
               targets: 0,
               data: null,
-              //   checkboxes: {
-              //     selectRow: true,
-              //   },
-              //   render: $.fn.dataTable.render.text(),
+
               defaultContent: "",
               orderable: false,
               className: "select-checkbox",
-              //   order: [[1, "asc"]],
-              // render: function (data) {
-              //   return (
-              //     '<input type="checkbox" name= value="' +
-              //     $("<div/>").text(data).html() +
-              //     '">'
-              //   );
-              // },
             },
           ],
           select: {
@@ -235,7 +190,6 @@ $(document).ready(function () {
           fixedHeader: true,
 
           initComplete: function () {
-            // let hasFilters = false;
             let $filterRow = $('<tr class="filter-row"></tr>');
 
             // add column filters
@@ -251,19 +205,11 @@ $(document).ready(function () {
 
                   $("input", $filterTd).on("keyup change clear", function () {
                     if (column.search() !== this.value) {
-                      // todo split grouped data and filter items
-                      // let groupData = column.data().split()
-
                       column.search(this.value).draw();
                     }
                   });
-
-                  // $filterTd.append('<input style="width: 100%"/>');
-
-                  // if ($filter) {
                 }
                 $filterRow.append($filterTd);
-                // }
               });
             $("div .dataTables_scrollHeadInner thead").append($filterRow);
           },
@@ -289,8 +235,6 @@ $(document).ready(function () {
           );
 
           if (currentRowsChecked.length >= 1) {
-            // alert("hi");
-
             $("#qdReviewSubmit")
               .css({ visibility: "visible" })
               .text(`Review and Submit (${currentRowsChecked.length})`);
@@ -308,7 +252,6 @@ $(document).ready(function () {
           );
 
           if (currentRowsChecked.length >= 1) {
-            // alert("hi");
             $("#qdReviewSubmit")
               .css({ visibility: "visible" })
               .text(`Review and Submit (${currentRowsChecked.length})`);
@@ -338,9 +281,10 @@ $(document).ready(function () {
           $(".modal").css({ display: "block" });
 
           let projectsToDelete = [];
-          let projectsToRestore = [];
+          $(".modal-delete-table").html("");
 
-          console.log(newData);
+          let projectsToRestore = [];
+          $(".modal-restore-table").html("");
 
           let selectedPids = $.map(
             table.rows(".selected").data(),
@@ -357,20 +301,16 @@ $(document).ready(function () {
                     ...projectsToDelete,
                     { pid: selectedPids[i], name: newData.data[j].app_title },
                   ];
-                  //   console.log("delete");
                 } else {
                   projectsToRestore = [
                     ...projectsToRestore,
                     { pid: selectedPids[i], name: newData.data[j].app_title },
                   ];
-                  //   console.log("restore");
                 }
                 break;
               }
             }
           }
-
-          console.log(projectsToDelete);
 
           function generateDeleteTableRows() {
             let htmlString = ``;
@@ -395,15 +335,19 @@ $(document).ready(function () {
             </tbody>
         </table>`;
 
-            $(".modal-delete-table").html(
-              `DELETE ${projectsToDelete.length} Project(s) ${deleteTable}`
-            );
-          }
-
-          if (projectsToDelete.length >= 1 && projectsToRestore.length >= 1) {
-            $("#modal-table-hr").css({ display: "block" });
-          } else {
-            $("#modal-table-hr").css({ display: "none" });
+            if (projectsToDelete.length >= 1) {
+              $(".modal-delete-table").html(
+                `DELETE ${projectsToDelete.length} Project(s) ${deleteTable}`
+              );
+              if (
+                projectsToDelete.length >= 1 &&
+                projectsToRestore.length >= 1
+              ) {
+                $("#modal-table-hr").css({ display: "block" });
+              } else {
+                $("#modal-table-hr").css({ display: "none" });
+              }
+            }
           }
 
           const restoreTable = `<table class="tableFormatting">
@@ -416,13 +360,15 @@ $(document).ready(function () {
           </tbody>
       </table>`;
 
-          $(".modal-restore-table").html(
-            `${
-              projectsToRestore.length >= 1
-                ? `RESTORE ${projectsToRestore.length} Project(s)</br>${restoreTable}`
-                : ``
-            } `
-          );
+          if (projectsToRestore.length >= 1) {
+            $(".modal-restore-table").html(
+              `${
+                projectsToRestore.length >= 1
+                  ? `RESTORE ${projectsToRestore.length} Project(s)</br>${restoreTable}`
+                  : ``
+              } `
+            );
+          }
 
           $("#qdSubmit").text(
             `Submit ${

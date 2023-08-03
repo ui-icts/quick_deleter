@@ -58,13 +58,9 @@ if(SUPER_USER == "1") {
         <div class="modal-content">
           <span>Review Project Status Changes <button class="modal-close buttonFormatting" style="display: inline; width: 50px; float:right;">Close</button></span>
           <hr/>
-         <div class="modal-delete-table">
-        
-      </div>
+         <div class="modal-delete-table"></div>
       <hr id="modal-table-hr" style="display: none;"/>
-      <div class="modal-restore-table">
-        
-        </div>
+      <div class="modal-restore-table"></div>
         <hr/>
         <button type="button" id="qdSubmit" class="buttonFormatting bigButtonFormatting">Submit</button>
         </div>
