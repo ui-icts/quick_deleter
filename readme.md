@@ -1,37 +1,23 @@
-Quick Deleter
+Quickly delete and/or restore projects in batches.
 
-The Quick Deleter external module allows REDCap super users to quickly delete and/or restore projects.  The table includes all the information you need to feel confident in deleting a project.
+-Delete and restore in the same submit.
 
-4 report types
-1)  My projects:  Displays all the projects for the current user
-2)  All projects:  Displays all projects
-3)  Custom json:  Paste in a json from the Admin Dashboard 
-4)  Custom csv:  Comma separated project IDs.  The csv can have spaces or not.
+-Projects deleted via Quick Deleter aren't actually deleted, but merely flagged for deletion 30 days later.
 
-*  The custom report is limited to 100 projects.
+-All project deletes/restores will be logged at the project and system level individually.
 
--  The table features column sorting, filtering, and adjusting the amount of rows displayed. 
+Browse projects with 2 built in reports
 
--  To show only projects that are active, type "" in the "delete flagged" column filter.  To show only projects that are flagged for delete, type <> in the "delete flagged" column filter.  
+1. My Projects
+2. All Projects
 
--  Like deleting a project in REDCap, deleting via Quick Deleter won't permanently delete the project immediately.  The project will be restoreable for 30 days, then be permanently deleted.
+-Or view a custom report by entering a list of pids
+e.g. 2056,4365,364,14,8764
 
--  Project deletes and restores are logged both at the project and system level.
+-Or paste in a json export of projects from the Admin Dashboard external module e.g.
 
--  
+{"header":["PID","Project Title","Status","Record Count","Research Purpose","PI Last Name","PI First Name","PI Email","IRB Number","Creation Time","Last Logged Event","Days Since Last Event"],"footer":null,"body":[["39","test4","Development","1","Basic or Bench Research, Clinical research study or trial, Translational Research 1, Translational Research 2","","","","","2023-04-04 20:11:27","2023-04-13 20:00:46","105"],["20","test3","Production","0","Basic or Bench Research, Epidemiology","","","","","2022-08-26 18:39:32","2022-08-26 18:50:29","335"],["19","test2","Analysis/Cleanup","0","Translational Research 1","","","","","2022-08-26 18:37:09","2023-02-08 18:19:59","169"],["18","test","Development","0","Basic or Bench Research","test","test","","","2022-08-26 18:36:56","2023-07-11 10:57:49","16"]]}
 
--  Many values in the table are links that will take you to various pages in the REDCap project:
-    -  PID:  Project settings
-    -  Project name:  Project setup
-    -  Status:  Other functionality
-    -  Record count:  All data report
-    -  Users:  User page in control center
-    -  Days since last event:  Logging 
-    
--  Configuration options:
-    - Hide action column 
-    - Replace project buttons with checkboxes 
-    - Enable row colors. Red for deleted, green for active projects. 
-    - Enable delete and restore project button colors. Red for delete, green for restore. 
-    - Enable checkbox submit button color. Red for delete only, green for restore only, gray for delete and restore.
-    
+The json must be in this format. Quick Deleter will parse out the project ids.
+
+-Questions, comments, bug reports: https://github.com/ui-icts/quick_deleter

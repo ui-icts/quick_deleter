@@ -4,1125 +4,265 @@ namespace UIOWA\QuickDeleter;
 
 use ExternalModules\AbstractExternalModule;
 use ExternalModules\ExternalModules;
-use DateTimeRC;
-use Project;
-use REDCap;
 
+class QuickDeleter extends AbstractExternalModule {
 
-//  Session for returning submitted json/csv after deleting/restoring project.
-//    session_start();
+    public function generateJavascriptObject() {
+        return htmlspecialchars(json_encode([
+            'urlLookup' => array(
+                'redcapBase' => (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . SERVER_NAME . APP_PATH_WEBROOT,
+                'post' => $this->getUrl("requestHandler.php")
+            ),
+            'reportId' => $_GET['report-id'],
+            'redcap_csrf_token' => $this->getCSRFToken()
+        ]), ENT_QUOTES);
+     
+    }
 
-    class QuickDeleter extends AbstractExternalModule
-    {
-        public static $tableHeaders = [
-            'PID',
-            'Project Name',
-            'Purpose',
-            'Status',
-            'Records',
-            'Users',
-            'Created',
-            'Last Event',
-            'Deleted',
-            'Restorable Until'
-        ];
+    public function generateNavLinks() {
+        ?> <div style='display: flex; gap: 20px; align-items: center; justify-content: center;'>
+        <a href="<?= $this->getUrl("index.php?report-id=1") ?>">My Projects</a>
+        <a href="<?= $this->getUrl("index.php?report-id=2") ?>">All Projects</a>
+        <input id="qdCustomPids" placeholder="Enter json of projects or pid csv" style="width: 200px;"></input>
+        <button type="button" id="qdSubmitCustom" style="visibility: hidden;" class="buttonFormatting bigButtonFormatting">Search Custom</button>
+      </div> <?php
+    }
 
+    public function getQuery($reportId, $pids) {
+        $query = "";
+        $columns =  [['data' => "Check All", 'title' => "Check All" ],['data' => 'Project ID', 'title' => 'Project ID'], ['data' => 'Project Title', 'title' => 'Project Title'], ['data' => 'Date Deleted', 'title' => 'Date Deleted'], ['data' => 'Purpose', 'title' => 'Purpose'], ['data' => 'Statuses', 'title' => 'Statuses'], ['data' => 'Records', 'title' => 'Records'], ['data' => 'Users', 'title' => 'Users'], ['data' => 'Last Event', 'title' => 'Last Event'], ['data' => 'Days Since Last Event', 'title' => 'Days Since Last Event'], ['data' => 'Creation Time', 'title' => 'Creation Time'], ['data' => 'Completed Date', 'title' => 'Completed Date'], ['data' => 'New Final Delete Date', 'title' => 'New Final Delete Date']];
 
-        public function Get_Table() {
+        if($reportId == 1) {
+            $query = "SELECT a.project_id, app_title, a.date_deleted, a.purpose, a.status, record_count, username, last_logged_event, creation_time, completed_time,
+            CAST(CASE a.status
+                WHEN 0 THEN 'Development'
+                WHEN 1 THEN 'Production'
+                WHEN 2 THEN 'Inactive'
+                WHEN 3 THEN 'Archived'
+                ELSE a.status
+                END AS CHAR(50)) AS 'Statuses',
+            CAST(CASE a.purpose
+                WHEN 0 THEN 'Practice / Just for fun'
+                WHEN 4 THEN 'Operational Support'
+                WHEN 2 THEN 'Research'
+                WHEN 3 THEN 'Quality Improvement'
+                WHEN 1 THEN 'Other'
+                ELSE a.purpose
+                END AS CHAR(50)) AS 'Purpose',
+            CAST(a.project_id AS char) AS 'Project ID', 
+            CAST(app_title AS char) AS 'Project Title', 
+            CAST(record_count AS char) AS 'Records', 
+            CAST(creation_time AS date) AS 'Creation Time', 
+            CAST(completed_time AS date) AS 'Completed Date', 
+            CAST(a.date_deleted AS date) AS 'Date Deleted', 
+            CAST(last_logged_event AS date) AS 'Last Event', 
+            DATEDIFF(now(), last_logged_event) AS 'Days Since Last Event',
+            CAST(DATE_ADD(a.date_deleted, INTERVAL 30 DAY) AS date) AS 'New Final Delete Date',
+            CAST(CASE WHEN a.date_deleted IS NULL THEN 0 ELSE 1 END AS CHAR(50)) AS 'Flagged',
+            GROUP_CONCAT((b.username) SEPARATOR ', ') AS 'Users'
+            FROM redcap_projects as a
+            LEFT JOIN redcap_user_rights AS b
+            ON a.project_id=b.project_id
+            LEFT JOIN redcap_record_counts AS c
+            ON a.project_id=c.project_id
+            GROUP BY a.project_id
+            HAVING (GROUP_CONCAT((b.username) SEPARATOR ', ') LIKE '%".USERID."%')
+            ORDER BY a.project_id ASC";
 
-               $tab = $_REQUEST['tab'];
+        } else if($reportId == 2) {
+            $query = "SELECT a.project_id, app_title, a.date_deleted, a.purpose, a.status, record_count, username, last_logged_event, creation_time, completed_time,
+            CAST(CASE a.status
+                WHEN 0 THEN 'Development'
+                WHEN 1 THEN 'Production'
+                WHEN 2 THEN 'Inactive'
+                WHEN 3 THEN 'Archived'
+                ELSE a.status
+                END AS CHAR(50)) AS 'Statuses',
+            CAST(CASE a.purpose
+                WHEN 0 THEN 'Practice / Just for fun'
+                WHEN 4 THEN 'Operational Support'
+                WHEN 2 THEN 'Research'
+                WHEN 3 THEN 'Quality Improvement'
+                WHEN 1 THEN 'Other'
+                ELSE a.purpose
+                END AS CHAR(50)) AS 'Purpose',
+                CAST(a.project_id AS char) AS 'Project ID', 
+                CAST(a.project_id AS char) AS 'Project ID', 
+            CAST(app_title AS char) AS 'Project Title', 
+            CAST(record_count AS char) AS 'Records', 
+            CAST(creation_time AS date) AS 'Creation Time', 
+            CAST(completed_time AS date) AS 'Completed Date', 
+            CAST(a.date_deleted AS date) AS 'Date Deleted', 
+            CAST(last_logged_event AS date) AS 'Last Event', 
+            DATEDIFF(now(), last_logged_event) AS 'Days Since Last Event',
+            CAST(DATE_ADD(a.date_deleted, INTERVAL 30 DAY) AS date) AS 'New Final Delete Date',
+            CAST(CASE WHEN a.date_deleted IS NULL THEN 0 ELSE 1 END AS CHAR(50)) AS 'Flagged',
+            GROUP_CONCAT((b.username) SEPARATOR ', ') AS 'Users'
+            FROM redcap_projects as a
+            LEFT JOIN redcap_user_rights AS b
+            ON a.project_id=b.project_id
+            LEFT JOIN redcap_record_counts AS c
+            ON a.project_id=c.project_id
+            GROUP BY a.project_id
+            ORDER BY a.project_id ASC";
 
-              $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') ? "https://" : "http://";
-                $Current_URL = $protocol . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
-                $Home_Page = $this->getUrl("index.php");
+        } else if($reportId == 3) {
 
-                global $conn;
-                if (!isset($conn)) {
-                    db_connect(false);
-                }
-
-                $Parsed_Custom = $this->Parse_Custom();
-                $Parsed_Array = explode(",", $Parsed_Custom);
-                $qMarks = str_repeat('?,', count($Parsed_Array) - 1) . '?';
-                $Get_Integers = explode(",", $Parsed_Custom);
-                $Integers = join(array_pad(array(), count($Get_Integers), "i"));
-
-                // SQL
-                $Project_Pages = array("
-                    SELECT a.project_id, app_title, a.date_deleted, a.purpose, a.status, record_count, last_logged_event, creation_time, username,
-                    CAST(CASE a.status
-                         WHEN 0 THEN 'Development'
-                         WHEN 1 THEN 'Production'
-                         WHEN 2 THEN 'Inactive'
-                         WHEN 3 THEN 'Archived'
-                         ELSE a.status
-                         END AS CHAR(50)) AS 'Statuses',
-                    CAST(CASE a.purpose
-                        WHEN 0 THEN 'Practice / Just for fun'
-                        WHEN 4 THEN 'Operational Support'
-                        WHEN 2 THEN 'Research'
-                        WHEN 3 THEN 'Quality Improvement'
-                        WHEN 1 THEN 'Other'
-                        ELSE a.purpose
-                        END AS CHAR(50)) AS 'Purpose',
-                    CAST(creation_time AS date) AS 'New Creation Time', 
-                    CAST(a.date_deleted AS date) AS 'New Date Deleted', 
-                    CAST(last_logged_event AS date) AS 'New Last Event', 
-                    DATEDIFF(now(), last_logged_event) AS 'Days Since Last Event',
-                    CAST(DATE_ADD(a.date_deleted, INTERVAL 30 DAY) AS date) AS 'New Final Delete Date',
-                    CAST(CASE WHEN a.date_deleted IS NULL THEN 0 ELSE 1 END AS CHAR(50)) AS 'Flagged',
-                    GROUP_CONCAT((b.username) SEPARATOR ', ') AS 'Users'
-                    FROM redcap_projects as a
-                    LEFT JOIN redcap_user_rights AS b
-                    ON a.project_id=b.project_id
-                    LEFT JOIN redcap_record_counts AS c
-                    ON a.project_id=c.project_id
-                    GROUP BY a.project_id
-                    HAVING (GROUP_CONCAT((b.username) SEPARATOR ', ') LIKE '%".USERID."%')
-                    ORDER BY a.project_id ASC  
-                    "
-                        ,
-                            "
-                    SELECT a.project_id, app_title, a.date_deleted, a.purpose, a.status, record_count, last_logged_event, creation_time, username,
-                    CAST(CASE a.status
-                         WHEN 0 THEN 'Development'
-                         WHEN 1 THEN 'Production'
-                         WHEN 2 THEN 'Inactive'
-                         WHEN 3 THEN 'Archived'
-                         ELSE a.status
-                         END AS CHAR(50)) AS 'Statuses',
-                    CAST(CASE a.purpose
-                        WHEN 0 THEN 'Practice / Just for fun'
-                        WHEN 4 THEN 'Operational Support'
-                        WHEN 2 THEN 'Research'
-                        WHEN 3 THEN 'Quality Improvement'
-                        WHEN 1 THEN 'Other'
-                        ELSE a.purpose
-                        END AS CHAR(50)) AS 'Purpose',
-                    CAST(creation_time AS date) AS 'New Creation Time', 
-                    CAST(a.date_deleted AS date) AS 'New Date Deleted', 
-                    CAST(last_logged_event AS date) AS 'New Last Event', 
-                    DATEDIFF(now(), last_logged_event) AS 'Days Since Last Event',
-                    CAST(DATE_ADD(a.date_deleted, INTERVAL 30 DAY) AS date) AS 'New Final Delete Date',
-                    CAST(CASE WHEN a.date_deleted IS NULL THEN 0 ELSE 1 END AS CHAR(50)) AS 'Flagged',
-                    GROUP_CONCAT((b.username) SEPARATOR ', ') AS 'Users'
-                    FROM redcap_projects as a
-                    LEFT JOIN redcap_user_rights AS b
-                    ON a.project_id=b.project_id
-                    LEFT JOIN redcap_record_counts AS c
-                    ON a.project_id=c.project_id
-                    GROUP BY a.project_id
-                    ORDER BY a.project_id ASC
-                    ",
-                            "
-                    SELECT a.project_id, app_title, a.date_deleted, a.purpose, a.status, record_count, last_logged_event, creation_time, username,
-                    CAST(CASE a.status
-                         WHEN 0 THEN 'Development'
-                         WHEN 1 THEN 'Production'
-                         WHEN 2 THEN 'Inactive'
-                         WHEN 3 THEN 'Archived'
-                         ELSE a.status
-                         END AS CHAR(50)) AS 'Statuses',
-                    CAST(CASE a.purpose
-                        WHEN 0 THEN 'Practice / Just for fun'
-                        WHEN 4 THEN 'Operational Support'
-                        WHEN 2 THEN 'Research'
-                        WHEN 3 THEN 'Quality Improvement'
-                        WHEN 1 THEN 'Other'
-                        ELSE a.purpose
-                        END AS CHAR(50)) AS 'Purpose',
-                    CAST(creation_time AS date) AS 'New Creation Time', 
-                    CAST(a.date_deleted AS date) AS 'New Date Deleted', 
-                    CAST(last_logged_event AS date) AS 'New Last Event', 
-                    DATEDIFF(now(), last_logged_event) AS 'Days Since Last Event',
-                    CAST(DATE_ADD(a.date_deleted, INTERVAL 30 DAY) AS date) AS 'New Final Delete Date',
-                    CAST(CASE WHEN a.date_deleted IS NULL THEN 0 ELSE 1 END AS CHAR(50)) AS 'Flagged',
-                    GROUP_CONCAT((b.username) SEPARATOR ', ') AS 'Users'
-                    FROM redcap_projects as a
-                    LEFT JOIN redcap_user_rights AS b
-                    ON a.project_id=b.project_id
-                    LEFT JOIN redcap_record_counts AS c
-                    ON a.project_id=c.project_id
-                    WHERE a.project_id IN (" . $qMarks . ")  
-                    GROUP BY a.project_id
-                    ORDER BY a.project_id ASC
-                    LIMIT 100;
-                    "
-                );
-
-            ?>
-
-            <form name="Form" id="Form" action="<?= $this->getUrl("index.php") ?>" method="POST">
-            <?php
-
-            // Displays submit form if the page is My or All projects and not home page.
-            if(($tab == 0 || $tab == 1) && $Current_URL != $Home_Page) {
-
-                $this->Display_Page_Header();
-
+            foreach($pids AS $i => $pid) {
+                $pids[$i] = "?";
             }
-
-            // Prepare sql if json or csv
-            if($tab == 2) {
-                $stmt = $conn->prepare($Project_Pages[$tab]);
-                $stmt->bind_param($Integers, ...$Parsed_Array);
-                $stmt->execute();
-                $Get_Result = $stmt->get_result();
-                $num_rows = mysqli_num_rows($Get_Result);
-
-            //  If the page is json or csv and a value was submitted, display submit form, otherwise show error no results.
-
-                if ($num_rows != "") {
-
-                    $this->Display_Page_Header();
-
-                }  // End if ($Parsed_json != "")
-                else {
-                    ?>
-                    <h5 style="text-align: center; padding-top:100px; padding-bottom:5px;  color:white;">Error, no results.  Please enter a value</h5>
-                    <?php
-                }
-
-                // Builds HTML rows and displays sql results for submitted json and csv.
-                while ($row = $Get_Result->fetch_assoc()) {
-
-                    $this->Build_HTML_Table($row);
-
-                }  // End while loop
-            }
-            elseif($tab == 0 || $tab == 1) {
-                // Results for My or All Projects SQL query.
-                $Result = db_query($Project_Pages[$tab]);
-
-                // Builds HTML rows and displays sql results for My Projects and All Projects.
-                while ($row = db_fetch_assoc($Result))  // $sqlGetAllProjects
-                {
-
-                    $this->Build_HTML_Table($row);
-                }  // End while loop for My/All projects
-            }
-
+            
+            $qMarks = implode(',', $pids);
+      
+            $query = "SELECT a.project_id, app_title, a.date_deleted, a.purpose, a.status, record_count, username, last_logged_event, creation_time, completed_time,
+            CAST(CASE a.status
+                WHEN 0 THEN 'Development'
+                WHEN 1 THEN 'Production'
+                WHEN 2 THEN 'Inactive'
+                WHEN 3 THEN 'Archived'
+                ELSE a.status
+                END AS CHAR(50)) AS 'Statuses',
+            CAST(CASE a.purpose
+                WHEN 0 THEN 'Practice / Just for fun'
+                WHEN 4 THEN 'Operational Support'
+                WHEN 2 THEN 'Research'
+                WHEN 3 THEN 'Quality Improvement'
+                WHEN 1 THEN 'Other'
+                ELSE a.purpose
+                END AS CHAR(50)) AS 'Purpose',
+                CAST(a.project_id AS char) AS 'Project ID', 
+            CAST(app_title AS char) AS 'Project Title', 
+            CAST(record_count AS char) AS 'Records', 
+            CAST(creation_time AS date) AS 'Creation Time', 
+            CAST(completed_time AS date) AS 'Completed Date', 
+            CAST(a.date_deleted AS date) AS 'Date Deleted', 
+            CAST(last_logged_event AS date) AS 'Last Event', 
+            DATEDIFF(now(), last_logged_event) AS 'Days Since Last Event',
+            CAST(DATE_ADD(a.date_deleted, INTERVAL 30 DAY) AS date) AS 'New Final Delete Date',
+            CAST(CASE WHEN a.date_deleted IS NULL THEN 0 ELSE 1 END AS CHAR(50)) AS 'Flagged',
+            GROUP_CONCAT((b.username) SEPARATOR ', ') AS 'Users'
+            FROM redcap_projects as a
+            LEFT JOIN redcap_user_rights AS b
+            ON a.project_id=b.project_id
+            LEFT JOIN redcap_record_counts AS c
+            ON a.project_id=c.project_id
+            WHERE a.project_id IN (". $qMarks .")  
+            GROUP BY a.project_id
+            ORDER BY a.project_id ASC";
         }
 
-        //  Displays header, home page, and table
-        public function Display_Page()
-        {
-
-            if(SUPER_USER == 1) {
-
-                // Display page header
-                ?>
-                <div align="center" id="div_Header">
-
-                    <link href="<?= $this->getUrl("/resources/styles.css") ?>" rel="stylesheet" type="text/css"/>
-
-                    <h1 style="text-align: center; padding-top:40px; padding-bottom:5px; color:white;" class="Main_Header">
-                        <a href="<?php echo "//" . SERVER_NAME . APP_PATH_WEBROOT . "ExternalModules/?prefix=quick_deleter&page=index"; ?>">Quick Deleter </a>
-                    </h1>
-
-                    <table id="Pages_Table">
-                        <tr>
-                            <td>
-                                <a href="<?= $this->getUrl("index.php?tab=0") ?>">My Projects</a>
-                            </td>
-                            <td>
-                                <a href="<?= $this->getUrl("index.php?tab=1") ?> ">All Projects</a>
-                            </td>
-
-                            <form name="Custom_Form" id="Custom_Form" method="POST" action="<?= $this->getUrl("index.php?tab=2") ?>">
-                            <td>
-                                <input id="Custom_Box" class="Button_Box" type='text' name='Custom_Box' value="<?php echo htmlspecialchars($_POST['Custom_Box']); ?>" placeholder="Enter json or csv">
-                            </td>
-                            <td>
-                                <button class="Button_Link" type="submit" id="Custom_Page" name="Custom_Page">Search Custom</button>
-                            </td>
-
-                            </form>
-                        </tr>
-                    </table>
-                </div>
-                <?php
-
-                 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') ? "https://" : "http://";
-                $Current_URL = $protocol . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
-                $Home_Page = $this->getUrl("index.php");
-                if ($Current_URL == $Home_Page) {
-                    ?>
-                    <div >
-                        <h2 style="text-align: center; padding-top:50px; color:white;">Quickly delete and restore projects</h2>
-
-                        <div style="text-align: center; ">
-
-                        <br><br><br><br>
-
-
-                            <table width="100%" style="text-align: center; color:white; ">
-
-                                <tr >
-                                    <td width="20%" >
-                                        <p style="font-size:16px; text-align: left; padding-left:30%;  text-decoration: underline; font-weight: bold;">Reports</p>
-                                        <p style="text-align: left; padding-left:30%;">
-
-                                            -  <b>My projects:</b>  Projects for which the current user has permissions
-                                            </br>
-                                            -  <b>All projects:</b> Including archived and inactive
-                                             </br>
-                                            -  <b>Custom json:</b>  Enter a json from the Admin Dashboard
-                                            </br>
-                                            -  <b>Custom csv:</b>  Enter comma separated project IDs.
-                                        </p>
-                                    </td>
-
-                                    <td width="20%">
-                                        <p style="font-size:16px; text-align: left; padding-left:30%;  text-decoration: underline; font-weight: bold;">Table links</p>
-                                         <p style="text-align: left; padding-left:30%;">
-                                            -  <b>PID:</b>  Project settings
-                                            </br>
-                                            -  <b>Project name:</b>  Project setup
-                                            </br>
-                                            -  <b>Status:</b>  Other functionality
-                                             </br>
-                                            -  <b>Record count:</b>  All data report
-                                            </br>
-                                            -  <b>Users:</b>  User info
-                                            </br>
-                                            -  <b>Last event:</b>  Project logging
-                                        </p>
-                                    </td>
-
-                                </tr>
-
-                                  </table>
-
-                                  <br><br><br><br> <br><br><br><br>
-
-                            <table width="100%" style="text-align: center; color:white;  " >
-
-
-                                <tr>
-                                    <td width="20%">
-                                        <p style="font-size:16px; text-align: left; padding-left:30%;  text-decoration: underline; font-weight: bold;">Configuration options</p>
-                                        <p style="text-align: left; padding-left:30%; ">
-                                        -  Hide action column
-                                        </br>
-                                        -  Replace project buttons with checkboxes
-                                        </br>
-                                        -  Enable row colors.  Red for deleted, green for active projects.
-                                        </br>
-                                        -  Enable delete and restore project button colors.  Red for delete, green for restore.
-                                        </br>
-                                        -  Enable checkbox submit button color.  Red for delete only, green for restore only, gray for delete and restore.
-                                        </p>
-                                    </td>
-
-                                    <td width="20%">
-                                        <p style="font-size:16px; text-align: left; padding-left:30%;  text-decoration: underline; font-weight: bold;">Other information</p>
-                                        <p style="text-align: left; padding-left:30%; ">
-                                           -  The table features column sorting, filtering, and variable row number.
-                                            </br>
-                                        - Projects deleted via Quick Deleter aren't deleted immediately, they are merely flagged.  The project is permanently deleted 30 days after being flagged.
-                                        </br>
-                                        -  To show only projects that are active, type "" in the "deleted" column filter.  To show only projects that are flagged for delete, type <> in the "deleted" column filter.
-                                         </br>
-                                        -  Project deletes and restores are logged both at the project and system level.
-                                        </br>
-                                        -  Custom reports only show 100 rows.
-                                        </p>
-                                    </td>
-                                </tr>
-
-                            </table>
-</div>
-                    </div>
-                    <?php
-                }
-
-                $this->Get_Table();
-
-
-                global $conn;
-                if (!isset($conn)) {
-                    db_connect(false);
-                }
-
-
-                // Enables tablesorter
-                ?>
-                <script src="<?= $this->getUrl("/resources/tablesorter/jquery.tablesorter.min.js") ?>"></script>
-                <script src="<?= $this->getUrl("/resources/tablesorter/jquery.tablesorter.widgets.min.js") ?>"></script>
-                <script src="<?= $this->getUrl("/resources/tablesorter/widgets/widget-pager.min.js") ?>"></script>
-                <script src="<?= $this->getUrl("/resources/tablesorter/parsers/parser-input-select.min.js") ?>"></script>
-                <script src="<?= $this->getUrl("/resources/tablesorter/widgets/widget-output.min.js") ?>"></script>
-
-                <link href="<?= $this->getUrl("/resources/tablesorter/tablesorter/theme.blue.min.css") ?>" rel="stylesheet">
-                <link href="<?= $this->getUrl("/resources/tablesorter/tablesorter/jquery.tablesorter.pager.min.css") ?>" rel="stylesheet">
-                <link href="<?= $this->getUrl("/resources/styles.css") ?>" rel="stylesheet" type="text/css"/>
-
-                <script src="<?= $this->getUrl("/QuickDeleter.js") ?>"></script>
-                <script>
-                    UIOWA_QuickDeleter.tableHeaders = <?= json_encode(self::$tableHeaders) ?>;
-                    UIOWA_QuickDeleter.submitUrl = '<?= $this->getUrl('requestHandler.php') ?>';
-                </script>
-                <?php
-
-
-
-                    // Logs when a super user accesses quick deleter
-                    //REDCap::logEvent("Super user, " . USERID . ", accessed the Quick Deleter external module", NULL, NULL, NULL, NULL, NULL);
-
-                }  // End if(SUPER_USER == 1)
-                else {
-                    // Echos needed to display message under REDCap navbar
-                    echo "<br>";
-                    echo "<br>";
-                    echo "<br>";
-                    echo "<br>";
-                    REDCap::logEvent("Non super user, " . USERID . ", tried to access the Quick Deleter external module", NULL, NULL, NULL, NULL, NULL);
-                    echo "Something went wrong.";
-                    echo "<br>";
-                }
-            }  // End Display_Page()
-
-        public function Display_Page_Header() {
-
-            $tab = $_REQUEST['tab'];
-
-            $Custom_Type = $this->Get_Custom_Type();
-            echo "<br>";
-            ?>
-
-            <div>
-                <?php
-
-                if($tab == 0) {
-                    ?>
-                    <h2 style="text-align: center; padding-top:5px; padding-bottom:5px;  color:white;">My Projects</h2>
-                    <?php
-                }
-                elseif($tab == 1) {
-                    ?>
-                    <h2 style="text-align: center; padding-top:5px; padding-bottom:5px; color:white;">All Projects</h2>
-                    <?php
-                }
-                elseif($tab == 2 && $Custom_Type == "json") {
-                    ?>
-                    <h2 style="text-align: center; padding-top:5px; padding-bottom:5px; color:white;">Custom json</h2>
-                    <?php
-                }
-                elseif($tab == 2 && $Custom_Type == "csv") {
-                    ?>
-                    <h2 style="text-align: center; padding-top:5px; padding-bottom:5px; color:white;">Custom csv</h2>
-                    <?php
-                }
-                ?>
-            </div>
-
-            <!-- Submit button -->
-            <div align="center">
-                <table id='Submit_Table'>
-                    <tr>
-                        <td>
-                            <input class="reset_button" type="reset" name="reset" id="reset" >
-                        </td>
-
-                        <?php
-
-
-                        if($this->getSystemSetting("submit-button-colors")) {
-                            $Submit_Restore_Button_Color = "submit_restore_button";
-                        }
-                        else {
-                            $Submit_Restore_Button_Color = "";
-                        }
-
-                        if($this->getSystemSetting("submit-button-colors")) {
-                            $Submit_Delete_Button_Color = "submit_delete_button";
-                        }
-                        else {
-                            $Submit_Delete_Button_Color = "";
-                        }
-
-                        ?>
-                        <td>
-<!--    Not sure if needed anymore         <button type="submit" id='Hidden_Submit' name='Hidden_Submit' hidden >Send</button>-->
-                        </td>
-
-                        <?php
-
-
-
-                        if($this->getSystemSetting("restore-checkboxes") && $this->getSystemSetting("delete-checkboxes")) {
-                            ?>
-                        <td>
-                            <button type="button" id='send_button' name='send_button' >Submit</button>
-                        </td>
-                        <?php
-                        } elseif($this->getSystemSetting("restore-checkboxes") && !self::getSystemSetting("delete-checkboxes")) {
-                            ?>
-                        <td>
-                            <button type="button" class="<?php echo $Submit_Restore_Button_Color ?> " id='send_button' name='send_button' >Restore</button>
-                        </td>
-                        <?php
-                        }
-                        elseif(!self::getSystemSetting("restore-checkboxes") && $this->getSystemSetting("delete-checkboxes")) {
-                            ?>
-                        <td>
-                            <button type="button" class="<?php echo $Submit_Delete_Button_Color ?>" id='send_button' name='send_button' >Delete</button>
-                        </td>
-
-
-                        <?php
-                        }
-
-                        ?>
-
-                        <td>
-                            <input id='PID_Box' type='text' name='PID' hidden readonly>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-
-<!--checkbox confirmation modal-->
-           <div id="Confirmation_Modal" class="modal fade" role="dialog">
-              <div class="modal-dialog modal-lg">
-
-                <!-- Modal content-->
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h4 style="font-weight:bold" class="modal-title">Attention</h4>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                  </div>
-                  <div class="modal-body">
-                    <div id="modal-body-top">
-
-</div>
-
-                    <br/>
-                    <br/>
-
-                        <div id="Delete_Projects_Div">
-
-                          <div id="Delete_Projects_Outer_Div">
-                            <br/>
-                            <b style="color:red;">DELETE:</b>
-<br/>
-                             </div>
-
-                            <div id="Delete_Projects_Inner_Div">
-
-                                </div>
-                        </div>
-                        </table>
-                        <br/>
-                        <hr id="Spacer">
-                        <div id="Restore_Projects_Div">
-
-                            <div id="Restore_Projects_Outer_Div">
-                            <br/>
-                            <b style="color:green;">RESTORE:</b>
-<br/>
-                             </div>
-                              <div id="Restore_Projects_Inner_Div">
-                                </div>
-
-                        </div>
-                        </table>
-
-                  </div>
-                  <div class="modal-footer">
-                    <button id="Accept_Send_Checkboxes" name="Accept_Send_Checkboxes" type="button" class="btn btn-default" data-dismiss="modal">Confirm</button>
-                    <button id="Cancel_Button_Checkboxes" name="Cancel_Button_Checkboxes" type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-
-
-<!-- button confirmation modal -->
-                        <!-- Confirmation Modal -->
-            <div id="Confirmation_Modal_Button" class="modal fade" role="dialog">
-              <div class="modal-dialog">
-
-                <!-- Modal content-->
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h4 style="font-weight:bold" class="modal-title">Attention</h4>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                  </div>
-                  <div class="modal-body">
-
-                    <div id="Modify_Individual_Project_Div">
-
-                    </div>
-
-                  </div>
-                  <div class="modal-footer">
-                    <button id="Accept_Send_Button" name="Accept_Send_Button" type="button" class="btn btn-default" data-dismiss="modal">Accept</button>
-                    <button id="Cancel_Button_Individual" name="Cancel_Button" type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-
-
-
-
-            <!-- Pager -->
-            <div id="pager" class="pager" align="center">
-
-                <img src="<?= $this->getUrl("resources/tablesorter/tablesorter/images/icons/first.png") ?>" class="first"/>
-                <img src="<?= $this->getUrl("resources/tablesorter/tablesorter/images/icons/prev.png") ?>" class="prev"/>
-                <!-- the "pagedisplay" can be any element, including an input -->
-                <span class="pagedisplay" data-pager-output-filtered="{startRow:input} &ndash; {endRow} / {filteredRows} of {totalRows} total rows"></span>
-                <img src="<?= $this->getUrl("resources/tablesorter/tablesorter/images/icons/next.png") ?>" class="next"/>
-                <img src="<?= $this->getUrl("resources/tablesorter/tablesorter/images/icons/last.png") ?>" class="last"/>
-
-                <select class="pagesize">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-
-            </div>
-
-            <!-- Create table  -->
-            <div id="id_projects_table" align="center">
-                <table id='Projects_Table' class='tablesorter'>
-
-                     <?php
-
-                     $tab = $_REQUEST['tab'];
-
-                     if ($tab == 0 || $tab == 1) {
-                        ?>
-
-                     <thead>
-                        <tr>
-                            <th data-sorter="false" data-filter="false"></th> <?php
-                    } elseif ($tab == 2 ) {
-
-
-                         if(self::getSystemSetting('restore-checkboxes') || self::getSystemSetting('delete-checkboxes')) {
-                             ?>
-                            <thead>
-                            <tr>
-                            <th data-sorter="false" style="text-align:center" data-filter="false"><input name="check_all" id="check_all" type="checkbox"></th> <?php
-
-                         }
-                         else {
-                             ?>
-                                                     <thead>
-                            <tr>
-                            <th data-sorter="false" data-filter="false"></th>
-                             <?php
-                         }
-                         }
-
-                        foreach (self::$tableHeaders as $header) {
-                            echo "<th style='text-align:center'><b>$header</b></th>";
-                         }
-
-
-                            if(self::getSystemSetting('hide-action-column') || !self::getSystemSetting('restore-checkboxes') || !self::getSystemSetting('delete-checkboxes')) {
-
-                            }
-                            else {
-
-                                ?>
-                                <th data-sorter="false" data-filter="false" style="text-align:center"><b>Action</b></th>
-                                <?php
-                            }
-                             ?>
-
-                            <!--                                <th style="text-align:center"><b>Days Until Delete</b></th>-->
-                        </tr>
-                    </thead>
-
-            <?php
-
-        }  // End Display_Table_Header()
-
-        // Checks if custom type is json or csv
-        public function Get_Custom_Type() {
-
-            $Custom_Box = $_POST['Custom_Box'];
-
-
-            if(isset($Custom_Box)) {
-                if(substr($Custom_Box, 0, 1) == "[") {
-                    $Custom_Type = "json";
-//                    $_SESSION['Custom_Type'] = $Custom_Type;
-
-                }
-                elseif(is_numeric(substr($Custom_Box, 0 ,1)) == true) {
-                    $Custom_Type = "csv";
-//                    $_SESSION['Custom_Type'] = $Custom_Type;
-                }
-            }
-//            elseif(isset($_SESSION['Custom_Type'])) {
-//                $Custom_Type = $_SESSION['Custom_Type'];
-//            }
-
-            return $Custom_Type;
-        }  // End Get_Custom_Type()
-
-        // Parses custom json and csv
-        public function Parse_Custom() {
-
-            $Custom_Box = $_POST['Custom_Box'];
-            $Get_Custom_Type = $this->Get_Custom_Type();
-
-            if(isset($Custom_Box)) {
-                if($Get_Custom_Type == "json") {
-                    $Custom_Value = $Custom_Box;
-
-                    $json_decode = json_decode($Custom_Value);
-
-                    $Custom_PID = array();
-                    foreach ($json_decode AS $values) {
-                        if(filter_var($values->PID, FILTER_VALIDATE_INT)) {
-                            $Custom_PID[] = $values->PID;
-                        }
-                    }
-
-                    $Custom_Value = implode(",", $Custom_PID);
-//                    $_SESSION['Custom_Value'] = $Custom_Value;
-                }
-                elseif($Get_Custom_Type == "csv") {
-
-                    $Explode_CSV = explode(",", $Custom_Box);
-
-                    foreach($Explode_CSV AS $values) {
-                        if(filter_var($values, FILTER_VALIDATE_INT)) {
-                            $Custom_PID[] = $values;
-                        }
-                    }
-
-                    $Custom_Value = implode(",", $Custom_PID);
-//                    $_SESSION['Custom_Value'] = $Custom_Box;
-                }
-//            } elseif(isset($_SESSION['Custom_Value'])) {
-//                $Custom_Value = $_SESSION['Custom_Value'];
-            }
-
-            return $Custom_Value;
-        }  // End Parse_Custom()
-
-        // Turn username list into multiple values
-        public function Format_Usernames($row) {
-
-            $userIDlist = explode(", ", $row['Users']);
-            $formattedUsers = array();
-
-            foreach ($userIDlist as $index=>$userID)
-            {
-                $formattedUsername = $userID;
-                $formattedUsername = $this->Username_Links($formattedUsername);
-
-                array_push($formattedUsers, $formattedUsername . ($index < count($userIDlist) - 1 ? '<span class=\'hide-in-table\'>, </span>' : '')
-                );
-            }
-
-            $userCell = implode("<br>", $formattedUsers);
-
-            return $userCell;
-        }
-
-        // Creates username link that goes to user page in control center
-        public function Username_Links($userID) {
-
-//            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') ? "https://" : "http://";
-
-            $urlString = sprintf("//" . "%s%sControlCenter/view_users.php?username=%s",  // Browse User Page
-                SERVER_NAME,
-                APP_PATH_WEBROOT,
-                $userID);
-
-        $userLink = sprintf("<a href=\"%s\"
-                          target=\"_blank\">%s</a>",
-            $urlString, $userID);
-
-        return $userLink;
-        }
-
-        // Builds project table
-        public function Build_HTML_Table($row) {
-            ?>
-
-
-
-            <tr id="<?php echo $row['New Date Deleted']; ?>">
-
-
-            <?php ;
-
-            if ($row['New Date Deleted'] == "") {
-                if($this->getSystemSetting("row-colors")) {
-                    $Row_Class = "Active_Row_Colored";
-                } else {
-                    $Row_Class = "Active_Row_Uncolored";
-                }
-                if($this->getSystemSetting("button-colors")) {
-               $Button_Color = "Delete_PID_Button";
-                } else {
-                    $Button_Color = "";
-                }
-//                if($this->getSystemSetting("checkbox-colors")) {
-//                $Checkbox_Color = "Delete_PID_Checkbox";
-//                } else {
-//                    $Checkbox_Color = "PID_Checkbox";
-//                }
+        return ['query' => $query, 'columns' => $columns];
+    }
+   
+    public function getReportData($params) {
+      
+        $reportId = $params['report-id'];
+        $validReportIds = [1,2,3];
+        
+        if(SUPER_USER == "1" && in_array($reportId, $validReportIds)) {
+            $customPids = "";
+         
+            if($reportId == 3) {
+             
+                $customPids = $this->parsePids($params["pids"]);
+                $arrayizedPids = explode(",", $customPids);
+                $getQueryInfo = $this->getQuery($reportId, $arrayizedPids);
+                $sql = $getQueryInfo['query'];
+                $result = $this->query($sql, $arrayizedPids);
             } else {
-                if($this->getSystemSetting("row-colors")) {
-                    $Row_Class = "Deleted_Row_Colored";
-                } else {
-                    $Row_Class = "Deleted_Row_Uncolored";
-                }
-                if($this->getSystemSetting("button-colors")) {
-                $Button_Color = "Restore_PID_Button";
-                } else {
-                $Button_Color = "";
-                }
-//                if($this->getSystemSetting("checkbox-colors")) {
-//                $Checkbox_Color = "Restore_PID_Checkbox";
-//                } else {
-//                    $Checkbox_Color = "PID_Checkbox";
-//                }
+                $getQueryInfo = $this->getQuery($reportId, $customPids);
+                $sql = $getQueryInfo['query'];
+                $result = $this->query($sql, []);
+            }
+  
+            $returnedData = [];
+            while ($row = db_fetch_assoc($result)) {
+                $returnedData[] = $row;
             }
 
-                if ($row['New Date Deleted'] == "") // If date_delete is null, color row green, otherwise red.  // also works:  $row['New Date Deleted'] == ""
-                {
+            $finalArray = ['data' => $returnedData, 'columns' => $getQueryInfo['columns'], 'customPids' => $customPids];
+            echo htmlentities(strip_tags(json_encode($finalArray)), ENT_QUOTES, 'UTF-8');
 
-                    if($this->getSystemSetting("delete-checkboxes")) {
-
-                ?>
-
-                        <td align='center' class="<?php echo $Row_Class; ?>">
-                            <input class="PID_Checkbox" id="<?php echo $row['Flagged']; ?>" type='checkbox' name="Select_Project" value=<?php echo $row['project_id']; ?>>
-                        </td>
-
-                <?php
-
-                    }
-                    else {
-                ?>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <button data-toggle="modal" data-target="#Confirmation_Modal_Button" class="<?php echo $Button_Color ?>" type='button' value='delete'>Delete</button>
-                </td>
-
-                <?php
-
-                    }
-
-                } else {
-
-                    if($this->getSystemSetting("restore-checkboxes")) {
-                        ?>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <input class="PID_Checkbox" id="<?php echo $row['Flagged']; ?>" type='checkbox' name="Select_Project" value=<?php echo $row['project_id']; ?>>
-                </td>
-                <?php
-                    }
-                    else {
-                ?>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-
-                    <button data-toggle="modal" data-target="#Confirmation_Modal_Button" class="<?php echo $Button_Color ?>" id="Restore_PID_Button_<?php echo $row['project_id'] ?>" type='button' name="Restore_PID_Button" value=<?php echo $row['project_id']; ?>>Restore</button>
-
-                </td>
-
-                <?php
-                    }
-
-                }
-                ?>
-
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <a href="<?php echo "//" . SERVER_NAME . APP_PATH_WEBROOT . "ControlCenter/edit_project.php?project=" . $row['project_id']; ?>" target="_blank"> <?php echo $row['project_id']; ?></a>
-                </td>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <a href="<?php echo "//" . SERVER_NAME . APP_PATH_WEBROOT . "ProjectSetup/index.php?pid=" . $row['project_id']; ?>" target="_blank" > <?php echo $row['app_title']; ?> </a>
-                </td>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <?php echo $row['Purpose']; ?>
-                </td>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <a href="<?php echo "//" . SERVER_NAME . APP_PATH_WEBROOT . "ProjectSetup/other_functionality.php?pid=" . $row['project_id']; ?>" target="_blank" ><?php echo $row['Statuses']; ?></a>
-                </td>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <a href="<?php echo "//" . SERVER_NAME . APP_PATH_WEBROOT . "DataExport/index.php?pid=" . $row['project_id'] . "&report_id=ALL"; ?>" target="_blank" > <?php echo $row['record_count']; ?></a>
-                </td>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                   <?php
-
-                    echo $this->Format_Usernames($row);
-
-                    ?>
-                </td>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <?php echo $row['New Creation Time']; ?>
-                </td>
-               <td align='center' class="<?php echo $Row_Class; ?>">
-                    <a href="<?php echo "//" . SERVER_NAME . APP_PATH_WEBROOT . "Logging/index.php?pid=" . $row['project_id']; ?>"> <?php echo $row['New Last Event']; ?></a>
-                </td>
-<!--                <td align='center' class="color" --><?php ////echo $Row_Color ?>
-<!--                    <a href="--><?php //echo $protocol . SERVER_NAME . APP_PATH_WEBROOT . "Logging/index.php?pid=" . $row['project_id']; ?><!--" target="_blank" > --><?php //echo $row['Days Since Last Event']; ?><!--</a>-->
-<!--                </td>-->
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <?php echo $row['New Date Deleted']; ?>
-                </td>
-                <td align='center' class="<?php echo $Row_Class; ?>">
-                    <?php echo $row['New Final Delete Date']; ?>
-                </td>
-                <?php
-
-                if(self::getSystemSetting('hide-action-column') || !self::getSystemSetting('restore-checkboxes') || !self::getSystemSetting('delete-checkboxes')) {
-
-                }
-                else {
-                ?>
-
-                <td align='center' id="Row_Action" class="<?php echo $Row_Class; ?>">
-                  <?php
-                    }
-                    ?>
-                </td>
-                <?php ;
-                ?>
-
-            </tr>
-
-            <?php
-
-        }  // End Build_HTML_Table();
-
-        public function Restore_Individual($PID) {
-
-            if(SUPER_USER == 1) {
-
-                $Pre_Value = $this->Get_Value_Buttons($PID);
-
-                global $conn;
-                if (!isset($conn)) {
-                    db_connect(false);
-                }
-
-                $sql =
-                "
-                UPDATE redcap_projects
-                SET date_deleted = ?
-                WHERE project_id = ?
-                ";
-
-                $null_redcap = NULL;
-
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("si", $null_redcap, $PID);
-                $stmt->execute();
-
-
-                $Post_Value = $this->Get_Value_Buttons($PID);
-
-                if($Pre_Value != $Post_Value) {
-//                    if ($Post_Value['date_deleted'] == NULL) {
-                        REDCap::logEvent("Project restored via Quick Deleter", NULL, NULL, NULL, NULL, $PID);
-//                    }  // End of if (date_delete == NULL)
-                }
-                else {
-                    REDCap::logEvent("Project failed to restore via Quick Deleter", NULL, NULL, NULL, NULL, $PID);
-                }
-
-
-
-                }
+        } else {
+            echo "something went wrong";
         }
 
-                public function Delete_Individual($PID) {
+    }
 
-
-                $Pre_Value = $this->Get_Value_Buttons($PID);
-
-                global $conn;
-                if (!isset($conn)) {
-                    db_connect(false);
-                }
-
-
-          $sql =
-                "
-                UPDATE redcap_projects
-                SET date_deleted = ?
-                WHERE project_id = ?
-                ";
-
-                $now_redcap = 	NOW;
-
-
-            $stmt = $conn->prepare($sql);
-                $stmt->bind_param("si", $now_redcap, $PID);
-                $stmt->execute();
-
-
-                $Post_Value = $this->Get_Value_Buttons($PID);
-
-                if($Pre_Value != $Post_Value) {
-//                    if ($Post_Value['date_deleted'] == NULL) {
-                        REDCap::logEvent("Project deleted via Quick Deleter", NULL, NULL, NULL, NULL, $PID);
-//                    }  // End of if (date_delete == NULL)
-
-                }
-                else {
-                    REDCap::logEvent("Project failed to delete via Quick Deleter", NULL, NULL, NULL, NULL, $PID);
-                }
-
-                }
-
-
-        // This function is called on form submit.  Gets pre values, executes update query, gets post values, adds project update to REDCap Activity Log.
-        public function Submit_Checkboxes()
-        {
-            if(SUPER_USER == 1) {
-
-                $Pre_Values = $this->Get_Values();
-
-                global $conn;
-                if (!isset($conn)) {
-                    db_connect(false);
-                }
-
-                // Converts submitted PID_Box string to array for bind_param()
-                $PID_Array = explode(",", $this->Get_PID());
-
-                // Forms comma separated question mark placeholder string for SQL WHERE IN () query.  e.g. ?,?,?
-                $qMarks = str_repeat('?,', count($PID_Array) - 1) . '?';
-
-                // Forms int placeholder string for bind_param().  e.g. 'iii'
-                $Get_Integers = explode(",", $this->Get_PID());
-                $Integers = join(array_pad(array(), count($Get_Integers), "i"));
-
-                $sqlUpdateProject = "
-                UPDATE redcap_projects
-                SET date_deleted = IF(date_deleted IS NULL, ?, ?)
-                WHERE project_id IN (" . $qMarks . ")
-                ";
-
-                $now_redcap = NOW;
-                $null_redcap = NULL;
-
-                // https://stackoverflow.com/questions/3703180/a-prepared-statement-where-in-query-and-sorting-with-mysql/45905752#45905752.
-                $stmt = $conn->prepare($sqlUpdateProject);
-                $stmt->bind_param("ss".$Integers, $now_redcap, $null_redcap, ...$PID_Array);
-                $stmt->execute();
-                $stmt->close();
-
-                $Post_Values = $this->Get_Values();
-
-                // Adds logging to REDCap
-                foreach ($Pre_Values AS $Pre_Value) {
-                    foreach ($Post_Values AS $Post_Value) {
-                        if ($Post_Value['project_id'] == $Pre_Value['project_id']) {
-                            if ($Post_Value != $Pre_Value) {
-                                if ($Post_Value['date_deleted'] == NULL) {
-                                    REDCap::logEvent("Project restored via Quick Deleter", NULL, NULL, NULL, NULL, $Post_Value['project_id']);
-                                }  // End of if (date_delete == NULL)
-                                else {
-                                    REDCap::logEvent("Project deleted via Quick Deleter", NULL, NULL, NULL, NULL, $Post_Value['project_id']);
-                                }  // End of else (date_deleted != NULL)
-                            }  // End of if ($Post_Value == $Pre_Value)
-                            else {
-                                REDCap::logEvent("Quick Deleter failed for project " . $Post_Value['project_id'] . ". Project not updated.", NULL, NULL, NULL, NULL, $Post_Value['project_id']);
-                            } // End of else (project_id != project_id)
-                        }  // End of if (project_id == project_id)
-                    }  // End of foreach Post Values
-                }  // End of foreach Pre Values
-
-                }  // End if(SUPER_USER == 1)
-                else {
-                    REDCap::logEvent("Non super user, " . USERID . ", tried to delete/restore projects via the Quick Deleter external module", NULL, NULL, NULL, NULL, NULL);
-                    echo "<br>";
-                    echo "<br>";
-                    echo "<br>";
-                    echo "<br>";
-                    echo "Something went wrong." ;
-                    echo "<br>";
-            }  // End super user check
-        }  // End of Submit_Checkboxes()
-
-
-
-        // Gets PIDs for rows that were checked
-        public function Get_PID()
-        {
-            $PID_Box = $_POST['pid_box'];
-
-            return $PID_Box;
-        }  // End of Get_PID()
-
-        // Gets value of date_deleted.  Used for both pre and post values
-        public function Get_Values()
-        {
-
-            global $conn;
-            if (!isset($conn)) {
-                db_connect(false);
+    public function changeProjectStatus($params) {
+  
+        $parsedPids = [];
+        foreach(json_decode($params['pids']) AS $pid) {
+            if(filter_var((int)$pid, FILTER_VALIDATE_INT) !== false) {
+                array_push($parsedPids, $pid);
             }
-
-            $PID_Array = explode(",", $this->Get_PID());
-            $qMarks = str_repeat('?,', count($PID_Array) - 1) . '?';
-            $Get_Integers = explode(",", $this->Get_PID());
-            $Integers = join(array_pad(array(), count($Get_Integers), "i"));
-
-            $sql_Get_Values = "
-            SELECT project_id, date_deleted
-            FROM redcap_projects
-            WHERE project_id IN (" . $qMarks . ")
-            ";
-
-            $stmt = $conn->prepare($sql_Get_Values);
-            $stmt->bind_param($Integers, ...$PID_Array);
-            $stmt->execute();
-            $Get_Result = $stmt->get_result();
-
-            $Results = array();
-            while ($Values = $Get_Result->fetch_assoc()) {
-                $Results[] = $Values;
-            }
-            return $Results;
-        }  // End Get_Values()
-
-        public function Get_Value_Buttons($PID) {
-
-            global $conn;
-            if (!isset($conn)) {
-                db_connect(false);
-            }
-
-            $sql_Get_Values = "
-            SELECT project_id, date_deleted
-            FROM redcap_projects
-            WHERE project_id = ?
-            ";
-
-            $stmt = $conn->prepare($sql_Get_Values);
-            $stmt->bind_param("i", $PID);
-            $stmt->execute();
-            $Get_Result = $stmt->get_result();
-
-            $Results = array();
-            while ($Values = $Get_Result->fetch_assoc()) {
-                $Results[] = $Values;
-            }
-
-            return $Results;
-
         }
 
-}  // End class
+        $qMarks = str_repeat("?,",count($parsedPids)-1) . "?";
+        
+        $pidArray = [];
+        $mergedPids = array_merge($pidArray, $parsedPids);
+        $returnData = array();
 
+        $sqlGetCurrentProjectStatuses = "SELECT project_id, date_deleted FROM redcap_projects WHERE project_id IN (" . $qMarks . ")";
+        $result = $this->query($sqlGetCurrentProjectStatuses, $mergedPids);
+        while ($row = db_fetch_assoc($result)) {
+            $returnData[] = $row;
+        }
+    
+        $timeParams = [NOW, NULL];
+        $unpackedQueryParams = array_merge($timeParams, $parsedPids);
 
+        $sql = "UPDATE redcap_projects SET date_deleted = IF(date_deleted IS NULL, ?, ?) WHERE project_id IN (" . $qMarks . ")";
+        $this->query($sql, $unpackedQueryParams);
+
+        $postReturnData = [];
+        $postResult = $this->query($sqlGetCurrentProjectStatuses, $mergedPids);
+        while ($row = db_fetch_assoc($postResult)) {
+            $postReturnData[] = $row;
+        }
+
+        $confirmedRestored = [];
+        $confirmedDeleted = [];
+        $confirmedFailed = [];
+
+        foreach($returnData AS $project) {
+            foreach($postReturnData AS $project2) {
+                if($project['project_id'] == $project2['project_id']) {
+                    if($project['date_deleted'] != $project2['date_deleted']) {
+                        if($project2['date_deleted'] == null) {
+                            array_push($confirmedRestored, $project2['project_id']);
+                            \REDCap::logEvent("Project restored via Quick Deleter", NULL, NULL, NULL, NULL, $project2['project_id']);
+                        } else {
+                            array_push($confirmedDeleted, $project2['project_id']);
+
+                            \REDCap::logEvent("Project deleted via Quick Deleter", NULL, NULL, NULL, NULL, $project2['project_id']);
+                        }
+                    } else {
+                        array_push($confirmedFailed, $project2['project_id']);
+                    }
+                }
+            }
+        }
+
+        echo "change status received";
+    }
+
+    public function parsePids($pids) {
+
+        $parsedPids = [];
+        $explodedPids = explode(",", $pids);
+
+        foreach($explodedPids AS $pid) {
+            
+            if(filter_var((int)$pid, FILTER_VALIDATE_INT) !== false) {
+                array_push($parsedPids, $pid);
+            }
+        }
+
+        return implode(",", $parsedPids);
+    }
+
+}
+
+?>

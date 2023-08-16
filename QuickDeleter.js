@@ -1,546 +1,410 @@
-var UIOWA_QuickDeleter = {};
-
-UIOWA_QuickDeleter.selectedProjectInfo = {};
-
-
-
-(function($, window, document) {
-    $(document).ready(function() {
-
-
-
-        UIOWA_QuickDeleter.checks = $(".PID_Checkbox").on('change', function()
-        {
-            var checked = UIOWA_QuickDeleter.checks.is(':checked');
-
-            $("#send_button").toggle(!checked);
-            $("#send_button").toggle(checked);
-
-        });
-
-        UIOWA_QuickDeleter.checks.first().change();
-
-
-        // Tablesorter
-        $("#Projects_Table").tablesorter({
-
-            theme: 'blue',
-            widthFixed: true,
-            usNumberFormat: true,
-            sortReset: true,
-            sortRestart: false,
-            widgets: ['filter', 'pager', 'stickyHeaders'],
-
-            widgetOptions: {
-
-                stickyHeaders_offset: 50,
-                filter_reset : '.reset_button'
-
-            }
-
-        });
-
-        // Puts comma separated values of checkboxes in PID_Box.
-        $("form[name=Form]").on("change", "input[type=checkbox]", function () {
-            var QD_PID_Values = $.map($("input[type=checkbox]:checked"), function (pid) {
-                return pid.value;
-            });
-            $("form[name=Form]").find("input[id=PID_Box]").val(QD_PID_Values);
-        });
-
-        // Highlights all rows when check all box checked
-        $(document).ready(function () {
-            $("#check_all").on('change', function () {
-                var QD_PID_Checkboxes = $(".PID_Checkbox");
-                // console.log($(this));
-                QD_PID_Checkboxes.each(function () {
-
-                    // console.log($(this).checked);
-                    if ($(this).is(':checked'))
-
-                    // console.log($(this).attr('id'));
-                        if ($(this).prop('id') === '0')
-                        // console.log($(this).attr('id'));
-                            $(this).closest('tr').css("backgroundColor", "rgba(255, 0, 0, 0.7)").css({fontWeight: this.checked ? 'bold' : 'normal'});
-
-                        else
-                        // console.log($(this).attr('id'));
-                            $(this).closest('tr').addClass("Select_Restore_Row");
-                    else
-                    // console.log("Hi");
-                        $(this).closest('tr').css("backgroundColor", "").css({fontWeight: this.checked ? 'bold' : 'normal'}).removeClass("Select_Restore_Row");
-                });
-
-                // var $checks = $("#check_all").on('change', function () {
-                    $(this).is(':checked');
-                    // $("#send_button").toggle(!checked);
-                    $("#send_button").toggle("#send_button");
-                // });
-
-
-            })
-        });
-
-        //  Highlight row when box checked
-        $(".PID_Checkbox").on('change', function () {
-            if ($(this).is(':checked'))
-            // console.log($(this).attr('id'));
-                if ($(this).prop('id') === '0')
-                // console.log($(this).attr('id'));
-                    $(this).closest('tr').css("backgroundColor", "rgba(255, 0, 0, 0.8)").css({fontWeight: this.checked ? 'bold' : 'normal'}).css("color", "black");
-                else
-                // console.log($(this).attr('id'));
-                    $(this).closest('tr').addClass("Select_Restore_Row");
-            else
-            // console.log("Hi");
-                $(this).closest('tr').css("backgroundColor", "").css({fontWeight: this.checked ? 'bold' : 'normal'}).removeClass("Select_Restore_Row");
-        });
-
-        // Confirmation modal on submit with checkboxes
-        $('#send_button').click(function() {
-
-            var QD_values = new Array();
-            $.each($(".PID_Checkbox:checked"), function() {
-                var QD_Data = $(this).parents('tr:eq(0)');
-                QD_values.push({
-                    'PID: ': $(QD_Data).find('td:eq(1)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                    'Title: ': $(QD_Data).find('td:eq(2)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                    'Purpose: ': $(QD_Data).find('td:eq(3)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                    'Status: ': $(QD_Data).find('td:eq(4)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                    'Records: ': $(QD_Data).find('td:eq(5)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                    'Users: ': $(QD_Data).find('td:eq(6)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                    'Created: ': $(QD_Data).find('td:eq(7)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                    'Last Event: ': $(QD_Data).find('td:eq(8)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                    'Deleted ': $(QD_Data).find('td:eq(9)').text().trim().replace(/(\r\n|\n|\r)/gm,""),
-                });
-            });
-
-            // console.log(values);
-
-            var QD_Delete_Projects = new Array();
-            var QD_Restore_Projects = new Array();
-
-            QD_values.forEach(function (object) {
-
-                if(object['Deleted '] === "") {
-
-                    QD_Delete_Projects.push(object)
-                }
-                else {
-
-                    QD_Restore_Projects.push(object)
-                }
-
-            });
-
-            if(QD_Delete_Projects.length !== 0) {
-
-                $('div#Delete_Projects_Outer_Div').removeClass("Hide_Header");
-                $('div#Delete_Projects_Inner_Div').removeClass("Hide_Header");
-                $('div#Delete_Projects_Div').removeClass("Hide_Header");
-                $('hr#Spacer').removeClass("Hide_Header");
-            }
-
-
-            if(QD_Restore_Projects.length !== 0) {
-
-                $('div#Restore_Projects_Outer_Div').removeClass("Hide_Header");
-                $('div#Restore_Projects_Inner_Div').removeClass("Hide_Header");
-                $('div#Restore_Projects_Div').removeClass("Hide_Header");
-
-                $('hr#Spacer').removeClass("Hide_Header");
-            }
-
-            var QD_Count_Projects = QD_Delete_Projects.length + QD_Restore_Projects.length;
-
-            // Required to create the table without auto closing the tag
-            var QD_Delete_Table = '<table id="Delete_Confirm_Table" >';
-
-            $('#modal-body-top').html(
-            '<b style="font-size:16px">Confirm that the following ' + QD_Count_Projects + ' project(s) will be modified:</b>'
-                );
-
-
-            $('#Delete_Projects_Inner_Div').append(
-
-                // Required to create the table without auto closing the tag
-                $('#Delete_Projects_Inner_Div').append(QD_Delete_Table) +
-
-                '<tr id="">' +
-
-                '<th>' +
-                '<b> PID</b> ' +
-                '</th>' +
-
-                '<th>' +
-                '<b> Title</b> ' +
-                '</th>' +
-
-                '<th>' +
-                '<b> Records</b> '+
-                '</th>' +
-
-                '<th>' +
-                '<b> Status</b> '+
-                '</th>' +
-
-                '<th>' +
-                '<b> Purpose</b> '  +
-                '</th>' +
-
-                '<th>' +
-                '<b> Created</b> '+
-                '</th>' +
-
-                '<th>' +
-                '<b> Last_Event</b>' +
-                '</th>' +
-
-                '<th>' +
-                '<b> Users</b> ' +
-                '</th>' +
-
-                '</tr>'
-
-            );
-
-
-            // Table instead of rows
-            QD_Delete_Projects.forEach(function (QD_Deleted_Projects) {
-
-                $('#Delete_Projects_Inner_Div').append(
-
-                    '<tr>' +
-
-                    '<td>' +
-                    QD_Deleted_Projects["PID: "] +
-                    '</td>' +
-
-                                '<td>' +
-                               QD_Deleted_Projects["Title: "]+
-                                '</td>' +
-
-
-                                '<td>' +
-                                    QD_Deleted_Projects["Records: "] +
-                                '</td>' +
-
-                                '<td>' +
-                                    QD_Deleted_Projects["Status: "] +
-                                '</td>' +
-
-                                '<td>' +
-                                    QD_Deleted_Projects["Purpose: "] +
-                                '</td>' +
-
-                                '<td>' +
-                                    QD_Deleted_Projects["Created: "] +
-                                '</td>' +
-
-                                '<td>' +
-                                    QD_Deleted_Projects["Last Event: "] +
-                                '</td>' +
-
-                                '<td>' +
-                                    QD_Deleted_Projects["Users: "] +
-                                '</td>' +
-
-
-                            '</tr>'
-
-                );  // End delete projects inner div append
-
-
-
-
-            });  // End forEach Deleted_Projects
-
-
-            var QD_Restore_Table = '<table id="Restore_Confirm_Table" >';
-
-            $('#Restore_Projects_Inner_Div').append(
-
-                $('#Restore_Projects_Inner_Div').append(QD_Restore_Table) +
-
-                '<tr>' +
-
-                '<th>' +
-                '<b> PID</b> ' +
-                '</th>' +
-
-                '<th>' +
-                '<b> Title</b> ' +
-                '</th>' +
-
-
-
-                '<th>' +
-                '<b> Records</b> '+
-                '</th>' +
-
-                '<th>' +
-                '<b> Status</b> '+
-                '</th>' +
-
-                '<th>' +
-                '<b> Purpose</b> '  +
-                '</th>' +
-
-                '<th>' +
-                '<b> Created</b> '+
-                '</th>' +
-
-                '<th>' +
-                '<b> Last_Event</b>' +
-                '</th>' +
-
-                '<th>' +
-                '<b> Users</b> ' +
-                '</th>' +
-
-                '</tr>'
-            );
-
-
-            // Table instead of rows
-            QD_Restore_Projects.forEach(function (QD_Restored_Projects) {
-
-                $('#Restore_Projects_Inner_Div').append(
-
-                    '<tr>' +
-
-                    '<td>' +
-                    QD_Restored_Projects["PID: "] +
-                    '</td>' +
-
-                    '<td>' +
-                    QD_Restored_Projects["Title: "]+
-                    '</td>' +
-
-                    '<td>' +
-                    QD_Restored_Projects["Records: "] +
-                    '</td>' +
-
-                    '<td>' +
-                    QD_Restored_Projects["Status: "] +
-                    '</td>' +
-
-                    '<td>' +
-                    QD_Restored_Projects["Purpose: "] +
-                    '</td>' +
-
-                    '<td>' +
-                    QD_Restored_Projects["Created: "] +
-                    '</td>' +
-
-                    '<td>' +
-                    QD_Restored_Projects["Last Event: "] +
-                    '</td>' +
-
-                    '<td>' +
-                    QD_Restored_Projects["Users: "] +
-                    '</td>' +
-
-
-                    '</tr>'
-
-                );  // End delete projects inner div append
-
-
-            });  // End forEach Deleted_Projects
-
-
-            if(QD_Delete_Projects.length !== 0 || QD_Restore_Projects.length !== 0) {
-                $('#Confirmation_Modal').modal('show');
-            }
-
-            if(QD_Delete_Projects.length === 0) {
-                $('div#Delete_Projects_Outer_Div').addClass("Hide_Header");
-                $('div#Delete_Projects_Inner_Div').addClass("Hide_Header");
-                // $('div#Delete_Projects_Div').html("");
-                $('hr#Spacer').addClass("Hide_Header");
-            }
-
-
-
-            if(QD_Restore_Projects.length === 0) {
-                $('div#Restore_Projects_Outer_Div').addClass("Hide_Header");
-                $('div#Restore_Projects_Inner_Div').addClass("Hide_Header");
-                // $('div#Restore_Projects_Div').html("");
-                $('hr#Spacer').addClass("Hide_Header");
-            }
-
-
-        });  // End on send button click
-
-
-        $('#Accept_Send_Checkboxes').click(function(){
-
-            $.ajax({
-                method: 'POST',
-                url: UIOWA_QuickDeleter.submitUrl,
-                data: {
-                    pid_box: $("#PID_Box").val()
-                    // custom_box:  Custom_Value,
-
-                }
-
-            })
-                .done(function() {
-
-
-                    if(window.location.href.indexOf("tab=2") > -1)
-
-                        $("#Custom_Page").click();
-
-                    else
-
-                        document.location.reload();
-
-                });
-
-        });
-
-
-        // Delete modal contents when confirmation modal closes
-        $('#Confirmation_Modal').on('hide.bs.modal', function () {
-
-
-            $('div#Delete_Projects_Inner_Div').html("");
-
-
-            $('div#Restore_Projects_Inner_Div').html("");
-
-        });
-
-
-        // Confirmation popup for delete/restore via button
-        $('#Projects_Table button').click(function() {
-
-            if ($(this).text() === "Delete") {
-                $(this).closest('tr').css("backgroundColor", "rgba(255, 0, 0, 0.8)").css({fontWeight: 'bold'}).css("color", "black");
-            } else {
-                // console.log($(this).attr('id'));
-                $(this).closest('tr').addClass("Select_Restore_Row");
-            }
-
-            // get td elements
-            var rowTds = $(this).closest('tr').children();
-
-            // drop first (empty) header
-            rowTds = $(rowTds).not(':first');
-
-            // build object with project info
-            for (var i in UIOWA_QuickDeleter.tableHeaders) {
-                var currHeader = UIOWA_QuickDeleter.tableHeaders[i];
-
-                UIOWA_QuickDeleter.selectedProjectInfo[currHeader] = $(rowTds[i]).text().trim();
-
-            }
-
-            // console.log(UIOWA_QuickDeleter.selectedProjectInfo);
-
-            var action = "RESTORED".fontcolor("green");
-
-            if (UIOWA_QuickDeleter.selectedProjectInfo['Deleted'] === "") {
-                action = "DELETED".fontcolor("red");
-            }
-
-
-            $('#Modify_Individual_Project_Div').html(
-                '<b style="font-size:16px">Confirm that the following project will be ' + action + ':' +
-                '<br/><br/></b>' + '<span style="font-weight:bold" id="Modify_Individual_Project_Span">' + UIOWA_QuickDeleter.selectedProjectInfo['Project Name']+'</span>' +
-                '<br/><b>PID:</b> ' + UIOWA_QuickDeleter.selectedProjectInfo['PID'] +
-                '<br/>' +
-                '<br/><b>Record count:</b> ' + UIOWA_QuickDeleter.selectedProjectInfo['Records'] +
-                '<br/>' +
-                '<br/><b>Status:</b> ' + UIOWA_QuickDeleter.selectedProjectInfo['Status'] +
-                '<br/><b>Purpose:</b> ' + UIOWA_QuickDeleter.selectedProjectInfo['Purpose'] +
-                '<br/>' +
-                '<br/><b>Created:</b> ' + UIOWA_QuickDeleter.selectedProjectInfo['Created'] +
-                '<br/><b>Last_Event:</b> ' + UIOWA_QuickDeleter.selectedProjectInfo['Last Event'] +
-                '<br/>' +
-                '<br/><b>Users:</b> ' + UIOWA_QuickDeleter.selectedProjectInfo['Users']
-            );
-
-
-
-
-        });
-
-        $('#Accept_Send_Button').click(function(){
-            $.ajax({
-                method: 'POST',
-                url: UIOWA_QuickDeleter.submitUrl,
-                data: {
-                    pid: UIOWA_QuickDeleter.selectedProjectInfo['PID'],
-                    action: UIOWA_QuickDeleter.selectedProjectInfo['Deleted'] === '' ? 'delete' : 'restore'
-                }
-            })
-                .done(function() {
-                    if(window.location.href.indexOf("tab=2") > -1)
-
-                        $("#Custom_Page").click();
-
-                    else
-
-                        document.location.reload();
-                });
-
-            $('#reset').click();
-
-        });
-
-        $('#Cancel_Button_Individual').click(function(){
-            $('#reset').click();
-        });
-
-
-        //  Adds DELETE or RESTORE to Action column on box checked
-        $('.PID_Checkbox').on('click', function() {
-            if ($(this).is(':checked'))
-                if ($(this).prop('id') === '0')
-                    $(this).closest("tr").find("td#Row_Action").text("DELETE");
-                else
-                    $(this).closest("tr").find("td#Row_Action").text("RESTORE");
-            else
-                $(this).closest("tr").find("td#Row_Action").text("");
-
-        });
-
-
-        $("#check_all").on('change', function () {
-            var PID_Checkboxes = $(".PID_Checkbox");
-            // console.log($(this));
-            PID_Checkboxes.each(function () {
-                if ($(this).is(':checked'))
-                    if ($(this).prop('id') === '0')
-                        $(this).closest("tr").find("td#Row_Action").text("DELETE");
-                    else
-                        $(this).closest("tr").find("td#Row_Action").text("RESTORE");
-                else
-                    $(this).closest("tr").find("td#Row_Action").text("");
-            });
-        });
-
-        // Removes checked row color, column filter, and action on form reset
-        $('#reset').on('click', function() {
-            $('tr').css("backgroundColor", "").css({fontWeight: 'normal'});
-            $('tr').closest('tr').removeClass("Select_Restore_Row");
-            $("td#Row_Action").text("");
-
-            $('#Projects_Table').trigger('sortReset');
-
-                $("#send_button").hide();
-
-        });
-
-
-        // Avoids having to resubmit the form on page refresh
-        if (window.history.replaceState) {
-            window.history.replaceState(null, null, window.location.href);
+$(document).ready(function () {
+  let currentRowsChecked = [];
+
+  const url = new URL(window.location.href);
+  let pids = url.searchParams.get("pids");
+
+  if (pids !== undefined && pids !== "" && pids !== null) {
+    $("#qdCustomPids").val(pids);
+    $("#qdSubmitCustom").css({ visibility: "visible" });
+  } else {
+    $("#qdSubmitCustom").css({ visibility: "hidden" });
+  }
+
+  $("#qdCustomPids").on("change keyup keydown paste", function () {
+    let isValidCustomPids = false;
+    const boxVal = $("#qdCustomPids").val();
+    if (boxVal.match(/^\d/)) {
+      if (boxVal.includes(",") && !boxVal.endsWith(",")) {
+        const boxValSplit = boxVal.split(",");
+
+        for (let i = 0; i < boxValSplit.length; i++) {
+          if (
+            typeof parseInt(boxValSplit[i]) !== "number" ||
+            boxValSplit[i].includes(".") ||
+            isNaN(boxValSplit[i])
+          ) {
+            isValidCustomPids = false;
+            break;
+          } else {
+            isValidCustomPids = true;
+          }
         }
+      } else if (
+        typeof parseInt(boxVal) !== "number" ||
+        boxVal.includes(".") ||
+        boxVal.endsWith(",")
+      ) {
+        isValidCustomPids = false;
+        // break;
+      } else {
+        isValidCustomPids = true;
+      }
+    } else if (boxVal.startsWith("{") && boxVal.endsWith("}")) {
+      const pidColumnName = [
+        "pid",
+        "project-id",
+        "project_id",
+        "projectid",
+        "project id",
+      ];
+      const jsonizedBoxVal = JSON.parse(boxVal);
 
-    });
+      let pidIndex = -1;
+      for (let i = 0; i < jsonizedBoxVal.header.length; i++) {
+        if (pidColumnName.includes(jsonizedBoxVal.header[i].toLowerCase())) {
+          pidIndex = i;
 
-}(window.jQuery, window, document));
+          break;
+        }
+      }
+
+      let pids = [];
+
+      for (let i = 0; i < jsonizedBoxVal.body.length; i++) {
+        pids = [...pids, jsonizedBoxVal.body[i][pidIndex]];
+      }
+
+      $("#qdCustomPids").val(pids);
+    }
+
+    if (isValidCustomPids) {
+      $("#qdSubmitCustom").css({ visibility: "visible" });
+    } else {
+      $("#qdSubmitCustom").css({ visibility: "hidden" });
+    }
+  });
+
+  const getQueryData = new URLSearchParams();
+
+  $("#qdSubmitCustom").click(function () {
+    pids = $("#qdCustomPids").val();
+
+    const url = `${UIOWA_QD.urlLookup.redcapBase}ExternalModules/?prefix=quick_deleter&page=index&report-id=3&pids=${pids}`;
+
+    document.location.href = url;
+  });
+
+  getQueryData.append("report-id", UIOWA_QD.reportId);
+  getQueryData.append("redcap_csrf_token", UIOWA_QD.redcap_csrf_token);
+
+  fetchDataAndLoadTable();
+
+  function fetchDataAndLoadTable() {
+    getQueryData.append("pids", pids);
+    fetch(UIOWA_QD.urlLookup.post, {
+      method: "POST",
+      body: getQueryData,
+    })
+      .then((response) => response.text())
+      .then((data) => {
+        const data2 = data
+          .replaceAll("&quot;", '"')
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+        let newData = JSON.parse(data2);
+
+        const projectIdLink = {
+          data: "Project ID",
+          title: "Project ID",
+          render: function (data, type, row, meta) {
+            return `<a href="${UIOWA_QD.urlLookup.redcapBase}index.php?pid=${row.project_id}" target="_blank">${data}</a>`;
+          },
+        };
+
+        const projectTitleLink = {
+          data: "Project Title",
+          title: "Project Title",
+          render: function (data, type, row, meta) {
+            return `<a href="${UIOWA_QD.urlLookup.redcapBase}ProjectSetup/index.php?pid=${row.project_id}" target="_blank">${data}</a>`;
+          },
+        };
+
+        const projectStatusLink = {
+          data: "Statuses",
+          title: "Statuses",
+          render: function (data, type, row, meta) {
+            return `<a href="${UIOWA_QD.urlLookup.redcapBase}ProjectSetup/other_functionality.php?pid=${row.project_id}" target="_blank">${data}</a>`;
+          },
+        };
+
+        const projectUsersLink = {
+          data: "Users",
+          title: "Users",
+          render: function (data, type, row, meta) {
+            return `<a href="${UIOWA_QD.urlLookup.redcapBase}UserRights/index.php?pid=${row.project_id}" target="_blank">${data}</a>`;
+          },
+        };
+
+        const projectLastEventLink = {
+          data: "Last Event",
+          title: "Last Event",
+          render: function (data, type, row, meta) {
+            return `<a href="${UIOWA_QD.urlLookup.redcapBase}Logging/index.php?pid=${row.project_id}&usr=&record=&beginTime=&endTime=&dag=undefined&logtype=" target="_blank">${data}</a>`;
+          },
+        };
+
+        const projectDaysSinceEventLink = {
+          data: "Days Since Last Event",
+          title: "Days Since Last Event",
+          render: function (data, type, row, meta) {
+            return `<a href="${UIOWA_QD.urlLookup.redcapBase}Logging/index.php?pid=${row.project_id}&usr=&record=&beginTime=&endTime=&dag=undefined&logtype=" target="_blank">${data}</a>`;
+          },
+        };
+
+        newData.columns.splice(1, 1, projectIdLink);
+        newData.columns.splice(2, 1, projectTitleLink);
+        newData.columns.splice(5, 1, projectStatusLink);
+        newData.columns.splice(7, 1, projectUsersLink);
+        newData.columns.splice(8, 1, projectLastEventLink);
+        newData.columns.splice(9, 1, projectDaysSinceEventLink);
+
+        let table = $("#qdTable").DataTable({
+          data: newData.data,
+
+          scrollXInner: true,
+          scrollY: true,
+          // stateSave: true, todo - saved sorting can be confusing
+          colReorder: true,
+          fixedHeader: {
+            header: true,
+            headerOffset: $("#redcap-home-navbar-collapse").height(),
+          },
+
+          columnDefs: [
+            {
+              targets: 0,
+              data: null,
+
+              defaultContent: "",
+              orderable: false,
+              className: "select-checkbox",
+            },
+          ],
+          select: {
+            style: "multi",
+            selector: "td:first-child",
+          },
+          columns: [...newData.columns],
+          orderCellsTop: true,
+          fixedHeader: true,
+
+          initComplete: function () {
+            let $filterRow = $('<tr class="filter-row"></tr>');
+
+            // add column filters
+            this.api()
+              .columns()
+              .every(function () {
+                let column = this;
+                let $filterTd = $(
+                  '<th data-column-index="' + column.index() + '"></th>'
+                );
+                if (column.index() !== 0) {
+                  $filterTd.append('<input style="width: 100%"/>');
+
+                  $("input", $filterTd).on("keyup change clear", function () {
+                    if (column.search() !== this.value) {
+                      column.search(this.value).draw();
+                    }
+                  });
+                }
+                $filterRow.append($filterTd);
+              });
+            $("div .dataTables_scrollHeadInner thead").append($filterRow);
+          },
+        });
+
+        // sync filter visibility with column
+        table.on("column-visibility.dt", function (e, settings, column, state) {
+          let $filterTd = $(".filter-row > td").eq(column);
+
+          state ? $filterTd.show() : $filterTd.hide();
+        });
+
+        $('th:contains("Check All"):first').html(
+          "<input type='checkbox' id='qdCheckAll'></input>"
+        );
+
+        table.on("select", function (e, dt, type, indexes) {
+          currentRowsChecked = $.map(
+            table.rows(".selected").data(),
+            function (item) {
+              return item.project_id;
+            }
+          );
+
+          if (currentRowsChecked.length >= 1) {
+            $("#qdReviewSubmit")
+              .css({ visibility: "visible" })
+              .text(`Review and Submit (${currentRowsChecked.length})`);
+          } else {
+            $("#qdReviewSubmit").css({ visibility: "hidden" });
+          }
+        });
+
+        table.on("deselect", function (e, dt, type, indexes) {
+          currentRowsChecked = $.map(
+            table.rows(".selected").data(),
+            function (item) {
+              return item.project_id;
+            }
+          );
+
+          if (currentRowsChecked.length >= 1) {
+            $("#qdReviewSubmit")
+              .css({ visibility: "visible" })
+              .text(`Review and Submit (${currentRowsChecked.length})`);
+          } else {
+            $("#qdReviewSubmit").css({ visibility: "hidden" });
+          }
+        });
+
+        $("#qdSubmit").click(function () {
+          let ids = $.map(table.rows(".selected").data(), function (item) {
+            return item.project_id;
+          });
+
+          getQueryData.append("type", "changeStatus");
+          getQueryData.append("pids", JSON.stringify(ids));
+          fetch(UIOWA_QD.urlLookup.post, {
+            method: "POST",
+            body: getQueryData,
+          })
+            .then((response) => response.text())
+            .then((data) => {
+              window.location.reload();
+            });
+        });
+
+        $("#qdReviewSubmit").click(function () {
+          $(".modal").css({ display: "block" });
+
+          let projectsToDelete = [];
+          $(".modal-delete-table").html("");
+
+          let projectsToRestore = [];
+          $(".modal-restore-table").html("");
+
+          let selectedPids = $.map(
+            table.rows(".selected").data(),
+            function (item) {
+              return item.project_id;
+            }
+          );
+
+          for (let i = 0; i < selectedPids.length; i++) {
+            for (let j = 0; j < newData.data.length; j++) {
+              if (selectedPids[i] === newData.data[j].project_id) {
+                if (newData.data[j].date_deleted === null) {
+                  projectsToDelete = [
+                    ...projectsToDelete,
+                    { pid: selectedPids[i], name: newData.data[j].app_title },
+                  ];
+                } else {
+                  projectsToRestore = [
+                    ...projectsToRestore,
+                    { pid: selectedPids[i], name: newData.data[j].app_title },
+                  ];
+                }
+                break;
+              }
+            }
+          }
+
+          function generateDeleteTableRows() {
+            let htmlString = ``;
+            for (let i = 0; i < projectsToDelete.length; i++) {
+              htmlString += `<tr><td class="tableFormatting deleteTableRow">${projectsToDelete[i].pid}</td><td class="tableFormatting deleteTableRow">${projectsToDelete[i].name}</td></tr>`;
+            }
+            return htmlString;
+          }
+
+          function generateRestoreTableRows() {
+            let htmlString = ``;
+            for (let i = 0; i < projectsToRestore.length; i++) {
+              htmlString += `<tr><td class="tableFormatting restoreTableRow">${projectsToRestore[i].pid}</td><td class="tableFormatting restoreTableRow">${projectsToRestore[i].name}</td></tr>`;
+            }
+            return htmlString;
+          }
+
+          if (projectsToDelete.length >= 1) {
+            const deleteTable = `<table class="tableFormatting"><thead><th class="tableFormatting deleteTableHeader">Project ID</th><th class="tableFormatting deleteTableHeader">Project Name</th></thead>    
+            <tbody>
+                ${generateDeleteTableRows()}
+            </tbody>
+        </table>`;
+
+            if (projectsToDelete.length >= 1) {
+              $(".modal-delete-table").html(
+                `DELETE ${projectsToDelete.length} Project(s) ${deleteTable}`
+              );
+              if (
+                projectsToDelete.length >= 1 &&
+                projectsToRestore.length >= 1
+              ) {
+                $("#modal-table-hr").css({ display: "block" });
+              } else {
+                $("#modal-table-hr").css({ display: "none" });
+              }
+            }
+          }
+
+          const restoreTable = `<table class="tableFormatting">
+          <thead>
+              <th class="tableFormatting restoreTableHeader">Project ID</th>
+              <th class="tableFormatting restoreTableHeader">Project Name</th>
+          </thead>    
+          <tbody>
+              ${generateRestoreTableRows()}
+          </tbody>
+      </table>`;
+
+          if (projectsToRestore.length >= 1) {
+            $(".modal-restore-table").html(
+              `${
+                projectsToRestore.length >= 1
+                  ? `RESTORE ${projectsToRestore.length} Project(s)</br>${restoreTable}`
+                  : ``
+              } `
+            );
+          }
+
+          $("#qdSubmit").text(
+            `Submit ${
+              projectsToDelete.length + projectsToRestore.length
+            } Project(s)`
+          );
+        });
+
+        $(".modal-close").click(function () {
+          $(".modal").css({ display: "none" });
+        });
+
+        $("body th")
+          .on("click", "#qdCheckAll", function () {
+            if ($("#qdCheckAll").hasClass("selected")) {
+              table.rows().deselect();
+              $("#qdCheckAll").removeClass("selected");
+            } else {
+              table.rows().select();
+              $("#qdCheckAll").addClass("selected");
+            }
+          })
+          .on("select deselect", function () {
+            ("Some selection or deselection going on");
+            if (
+              table
+                .rows({
+                  selected: true,
+                })
+                .count() !== table.rows().count()
+            ) {
+              $("#qdCheckAll").removeClass("selected");
+            } else {
+              $("#qdCheckAll").addClass("selected");
+            }
+          });
+      });
+  }
+});
