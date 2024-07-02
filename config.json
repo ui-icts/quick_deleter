@@ -3,7 +3,12 @@
   "description": "Quickly delete and restore projects in bulk",
 
   "namespace": "UIOWA\\QuickDeleter",
-  "framework-version": 10,
+  "framework-version": 14,
+
+  "versions": {
+    "2.0.2": "Updated EM framework version to 14 and REDCap minimum version to 13.7.3."
+  },
+
   "authors": [
     {
       "name": "Joe Spring",
@@ -65,7 +70,7 @@
   "compatibility": {
     "php-version-min": "7.3",
     "php-version-max": "",
-    "redcap-version-min": "12.4.6",
+    "redcap-version-min": "13.7.3",
     "redcap-version-max": ""
   }
 }
